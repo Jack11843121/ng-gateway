@@ -8,6 +8,8 @@ WORKDIR /usr/local/ng-gateway
 COPY nginx.conf ./
 COPY conf ./conf/
 COPY lua ./lua/
+# 内置一份可运行的默认配置（生产用 volume 挂载覆盖 config.json）
+RUN cp conf/config.example.json conf/config.json
 
 EXPOSE 8080 9091
 CMD ["/usr/local/openresty/bin/openresty", "-g", "daemon off;", "-p", "/usr/local/ng-gateway/", "-c", "nginx.conf"]
