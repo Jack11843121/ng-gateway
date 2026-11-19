@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "global_plugins": [
+    { "type": "request-id", "config": {} },
+    { "type": "observability", "config": {} }
+  ],
+  "routes": [
+    {
+      "id": "route-demo-orders",
+      "name": "orders",
+      "uri": "/orders/",
+      "match": "prefix",
+      "host": "*",
+      "methods": ["GET", "POST"],
+      "priority": 100,
+      "upstream_id": "up-demo-svc",
+      "enabled": true,
+      "plugins": [
+        { "type": "rate-limit", "config": { "count": 100, "window": 60, "algorithm": "sliding", "key": "ip" } },
+        { "type": "api-key", "config": { "keys": ["demo-secret-key"] } }
+      ]
+    },
+    {
+      "id": "route-demo-public",
+      "name": "public",
+      "uri": "/",
+      "match": "prefix",
+      "host": "*",
+      "methods": ["GET", "POST"],
+      "priority": 1,
+      "upstream_id": "up-demo-svc",
+      "enabled": true,
+      "plugins": []
+    }
+  ],
+  "upstreams": [
+    {
+      "id": "up-demo-svc",
+      "name": "demo-service",
+      "scheme": "http",
+      "lb": "round_robin",
+      "nodes": [
+        { "host": "127.0.0.1", "port": 18080, "weight": 1 }
+      ],
+      "health_check": { "active": { "path": "/healthz", "interval": 5, "timeout": 3, "unhealthy": 3 } },
+      "timeout_connect": 3000,
+      "timeout_read": 30000,
+      "retries": 0
+    }
+  ]
+}
