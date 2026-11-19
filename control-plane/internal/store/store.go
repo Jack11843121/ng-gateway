@@ -1,14 +1,20 @@
-// Package store 提供配置存储抽象。
-// M1：仅内存存储（纯标准库，保证可编译可运行）。etcd 后端将在 M2 接入
-//（届时在可运行 Go 的环境执行 go mod tidy 生成 go.sum，再引入 go.etcd.io/etcd/client/v3）。
+// Package store 提供配置存储抽象：默认内存存储；设置 ETCD_ENDPOINTS 时启用 etcd（/ng/gateway/config）。
+// 注意：etcd 依赖较重，构建时在 Dockerfile 内先 `go mod tidy` 生成 go.sum（见 control-plane/Dockerfile）。
 package store
 
 import (
+	"context"
+	"encoding/json"
 	"errors"
+	"os"
+	"strings"
 	"sync"
+	"time"
+
+	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
-// GatewayConfig 与数据面 config.json 同构，控制面维护并下发给数据面。
+// GatewayConfig 与数据面 config.json 同构。
 type GatewayConfig struct {
 	Version       int             `json:"version"`
 	GlobalPlugins []PluginBinding `json:"global_plugins"`
@@ -55,7 +61,7 @@ type Store interface {
 	Close() error
 }
 
-// memoryStore（M1 默认）：进程内存储。
+// memoryStore：进程内存储。
 type memoryStore struct {
 	mu  sync.RWMutex
 	cfg *GatewayConfig
@@ -82,9 +88,56 @@ func (m *memoryStore) Load() (*GatewayConfig, error) {
 
 func (m *memoryStore) Close() error { return nil }
 
-// New 返回存储后端；M1 仅有内存实现，M2 按 ETCD_ENDPOINTS 环境变量接 etcd。
+// etcdStore：配置文档读写 /ng/gateway/config（数据面 watch/读取）。
+type etcdStore struct {
+	cli *clientv3.Client
+	key string
+}
+
+func (e *etcdStore) Save(cfg *GatewayConfig) error {
+	b, err := json.Marshal(cfg)
+	if err != nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	_, err = e.cli.Put(ctx, e.key, string(b))
+	return err
+}
+
+func (e *etcdStore) Load() (*GatewayConfig, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	resp, err := e.cli.Get(ctx, e.key)
+	if err != nil {
+		return nil, err
+	}
+	if len(resp.Kvs) == 0 {
+		return &GatewayConfig{Version: 1, Routes: []Route{}, Upstreams: []Upstream{}}, nil
+	}
+	var cfg GatewayConfig
+	if err := json.Unmarshal(resp.Kvs[0].Value, &cfg); err != nil {
+		return nil, err
+	}
+	return &cfg, nil
+}
+
+func (e *etcdStore) Close() error { return e.cli.Close() }
+
+// New 根据 ETCD_ENDPOINTS 选择存储后端。
 func New() (Store, error) {
-	return &memoryStore{}, nil
+	ep := strings.TrimSpace(os.Getenv("ETCD_ENDPOINTS"))
+	if ep == "" {
+		return &memoryStore{}, nil
+	}
+	cli, err := clientv3.New(clientv3.Config{
+		Endpoints:   strings.Split(ep, ","),
+		DialTimeout: 3 * time.Second,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &etcdStore{cli: cli, key: "/ng/gateway/config"}, nil
 }
 
 var ErrNotFound = errors.New("not found")
