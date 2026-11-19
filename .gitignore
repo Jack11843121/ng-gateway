@@ -1,0 +1,30 @@
+# 通用
+.DS_Store
+logs/
+local/
+.env
+.env.*
+*.log
+
+# Go
+/bin/
+*.exe
+*.exe~
+*.test
+*.out
+vendor/
+
+# Lua / OpenResty
+*.so
+openresty-build/
+build/
+
+# 前端
+node_modules/
+dist/
+.vite/
+
+# IDE
+.idea/
+.vscode/
+*.iml
