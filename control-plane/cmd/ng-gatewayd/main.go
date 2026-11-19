@@ -160,6 +160,8 @@ func main() {
 	mux.HandleFunc("/api/v1/routes/", routeOneHandler)
 	mux.HandleFunc("/api/v1/upstreams", upstreamsHandler)
 	mux.HandleFunc("/api/v1/config", configHandler)
+	// 管理控制台（Vue3 静态资源，同源调用 /api/v1/*）
+	mux.Handle("/", http.FileServer(http.Dir("./web")))
 
 	log.Printf("ng-gatewayd admin listening on %s", *addr)
 	if err := http.ListenAndServe(*addr, mux); err != nil {

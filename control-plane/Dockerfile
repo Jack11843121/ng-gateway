@@ -9,6 +9,8 @@ RUN go build -o /ng-gatewayd ./cmd/ng-gatewayd
 FROM alpine:3.19
 RUN addgroup -S ngw && adduser -S ngw -G ngw
 COPY --from=build /ng-gatewayd /usr/local/bin/ng-gatewayd
+COPY --from=build /src/web /app/web
+WORKDIR /app
 USER ngw
 EXPOSE 8081
 ENTRYPOINT ["ng-gatewayd"]

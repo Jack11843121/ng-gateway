@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NG 网关 · 管理控制台</title>
+  <script src="https://unpkg.com/vue@3.4.21/dist/vue.global.prod.js"></script>
+  <style>
+    :root { --bg:#f4f6fb; --card:#fff; --border:#e3e8f0; --primary:#2470d8; --text:#1a2b3c; --muted:#5b7085; }
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body { font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif; background:var(--bg); color:var(--text); line-height:1.6; }
+    header.top { background:#0e1a2b; color:#fff; padding:14px 24px; display:flex; align-items:center; justify-content:space-between; }
+    header.top b { font-size:18px; }
+    header.top .dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:#10b981; margin-right:8px; }
+    main { max-width:1100px; margin:24px auto; padding:0 16px; }
+    section { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:20px 22px; margin-bottom:20px; }
+    h2 { font-size:17px; margin-bottom:12px; }
+    form { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
+    input { flex:1 1 140px; padding:8px 10px; border:1px solid var(--border); border-radius:8px; font-size:13px; }
+    button { background:var(--primary); color:#fff; border:none; border-radius:8px; padding:8px 14px; font-size:13px; cursor:pointer; }
+    button.ghost { background:#fff; color:var(--primary); border:1px solid var(--border); }
+    table { width:100%; border-collapse:collapse; font-size:13px; }
+    th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--border); }
+    th { color:var(--muted); font-weight:600; }
+    .tag { display:inline-block; background:#eaf3fd; color:var(--primary); border-radius:6px; padding:1px 8px; font-size:12px; margin-right:4px; }
+    pre { background:#0e1a2b; color:#7dd3fc; border-radius:10px; padding:14px; overflow:auto; font-size:12px; max-height:380px; }
+    .muted { color:var(--muted); font-size:13px; }
+    .err { color:#dc2626; font-size:13px; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <header class="top">
+      <div><b>⚡ NG 网关 管理控制台</b></div>
+      <div><span class="dot"></span><span class="muted" style="color:#b6c6d8" id="health">{{ health }}</span></div>
+    </header>
+
+    <main>
+      <!-- 上游 -->
+      <section>
+        <h2>上游 Upstreams</h2>
+        <form @submit.prevent="addUpstream">
+          <input v-model="upForm.id" placeholder="id，如 up1" required />
+          <input v-model="upForm.name" placeholder="名称（可选）" />
+          <input v-model="upForm.nodes" placeholder="节点 host:port,host:port" required />
+          <button>添加上游</button>
+        </form>
+        <table>
+          <thead><tr><th>ID</th><th>名称</th><th>节点</th><th>调度</th></tr></thead>
+          <tbody>
+            <tr v-for="u in upstreams" :key="u.id">
+              <td>{{ u.id }}</td><td>{{ u.name || '-' }}</td>
+              <td><span class="tag" v-for="n in u.nodes" :key="n.host+n.port">{{ n.host }}:{{ n.port }}</span></td>
+              <td>{{ u.lb || 'round_robin' }}</td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="muted" v-if="!upstreams.length">暂无上游</p>
+      </section>
+
+      <!-- 路由 -->
+      <section>
+        <h2>路由 Routes</h2>
+        <form @submit.prevent="addRoute">
+          <input v-model="rtForm.id" placeholder="id，如 r1" required />
+          <input v-model="rtForm.name" placeholder="名称（可选）" />
+          <input v-model="rtForm.uri" placeholder="uri，如 /orders/" required />
+          <input v-model="rtForm.upstream_id" placeholder="upstream_id，如 up1" required />
+          <button>添加路由</button>
+        </form>
+        <table>
+          <thead><tr><th>ID</th><th>名称</th><th>URI</th><th>上游</th><th>方法</th><th>操作</th></tr></thead>
+          <tbody>
+            <tr v-for="r in routes" :key="r.id">
+              <td>{{ r.id }}</td><td>{{ r.name || '-' }}</td><td>{{ r.uri }}</td>
+              <td>{{ r.upstream_id }}</td>
+              <td>{{ (r.methods || []).join(',') || '*' }}</td>
+              <td><button class="ghost" @click="delRoute(r.id)">删除</button></td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="muted" v-if="!routes.length">暂无路由</p>
+      </section>
+
+      <!-- 完整配置 -->
+      <section>
+        <h2>完整配置 Config</h2>
+        <p class="muted" style="margin-bottom:8px">下发到数据面的配置文档（与 data-plane conf/config.json 同构）</p>
+        <pre>{{ configJson }}</pre>
+      </section>
+
+      <p class="err" v-if="error">{{ error }}</p>
+    </main>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
