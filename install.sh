@@ -39,7 +39,7 @@ fi
 cd "$(dirname "$0")"
 info "从腾讯云下载 NG 网关预构建镜像包（v${VERSION}）与编排文件 ..."
 curl -fSL --retry 3 "$BASE_URL/ng-gateway-images-${VERSION}.tar.gz" -o "ng-gateway-images-${VERSION}.tar.gz"
-curl -fSL --retry 3 "$BASE_URL/docker-compose.yml" -o docker-compose.yml
+curl -fSL --retry 3 "$BASE_URL/ng-gateway-compose.yml" -o docker-compose.yml
 
 # 3) 加载镜像 + 启动 -----------------------------------------------------------
 info "加载镜像（data-plane + control-plane）..."
