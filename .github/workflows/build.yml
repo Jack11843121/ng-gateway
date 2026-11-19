@@ -1,0 +1,36 @@
+name: build-images
+
+# 打 tag（v1.0.0 等）触发：构建 data-plane + control-plane 两个镜像，
+# docker save 成一个 tar.gz 并发布到 GitHub Release，供运维托管到腾讯云 /releases/。
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build data-plane image
+        run: docker build -t ng-gateway-data-plane:1.0.0 ./data-plane
+
+      - name: Build control-plane image
+        run: docker build -t ng-gateway-control-plane:1.0.0 ./control-plane
+
+      - name: Save images as tarball
+        run: |
+          docker save ng-gateway-data-plane:1.0.0 ng-gateway-control-plane:1.0.0 -o ng-gateway-images-1.0.0.tar
+          gzip -9 ng-gateway-images-1.0.0.tar
+          ls -lh ng-gateway-images-1.0.0.tar.gz
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ng-gateway-images-1.0.0.tar.gz
+          generate_release_notes: true
